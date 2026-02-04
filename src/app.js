@@ -232,12 +232,44 @@ const App = {
                 <td style="font-size:0.8rem; color:#94a3b8;">${shortTime}</td>
                 <td style="text-align:right;">
                     ${linkBtn}
+                    <button class="btn btn-sm btn-info" onclick="App.copyReport('${map.id}')">複製</button>
                     <button class="btn btn-sm btn-secondary" onclick="App.editReport('${map.id}')">修改</button>
                     <button class="btn btn-sm btn-danger" onclick="App.deleteData('${map.id}')">刪除</button>
                 </td>
             `;
 			tbody.appendChild(tr);
 		});
+	},
+
+	// Copy Report to Form (New Record)
+	copyReport(id) {
+		const item = this.state.data.find(d => {
+			const map = this.getItemMap(d);
+			return map.id.toString() === id.toString();
+		});
+
+		if (!item) return;
+		const map = this.getItemMap(item);
+
+		// Fill form, but keep ID empty for new record
+		document.getElementById('r_id').value = '';
+		document.getElementById('r_status').value = 'New';
+		document.getElementById('r_module').value = map.mod || '';
+		document.getElementById('r_function').value = map.func || '';
+		document.getElementById('r_code').value = map.code || '';
+		document.getElementById('r_url').value = map.url || '';
+		document.getElementById('r_description').value = map.desc || '';
+
+		// UI State - Ensure it looks like "New Report"
+		this.state.isEditingReport = false;
+		document.getElementById('reportFormTitle').textContent = "新增回報 (已帶入資料)";
+		document.getElementById('r_submitBtn').textContent = "提交回報";
+		document.getElementById('r_cancelBtn').style.display = 'inline-flex';
+		document.getElementById('r_cancelBtn').textContent = "清除重填"; // Change text contextually? Or just keep "Cancel Edit" behavior which clears form.
+		// Actually App.cancelReportEdit() clears everything. Let's keep it simple.
+
+		// Scroll to top
+		document.getElementById('tab-report').scrollIntoView({ behavior: 'smooth' });
 	},
 
 	// === Fix List Logic ===

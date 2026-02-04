@@ -159,6 +159,9 @@ input:focus, select:focus, textarea:focus {
 .btn-secondary { background-color: #334155; color: white; }
 .btn-secondary:hover { background-color: #475569; }
 
+.btn-info { background-color: #0ea5e9; color: white; }
+.btn-info:hover { background-color: #0284c7; }
+
 .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.8rem; }
 
 /* Filter Bar */
