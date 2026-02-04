@@ -40,7 +40,8 @@ function doPost(e) {
     }
 
     if (action === 'create') {
-      var id = new Date().getTime().toString().slice(-6);
+      //var id = new Date().getTime().toString().slice(-6);
+      var id = getNextId();
       var timestamp = params.timestamp || new Date().toLocaleString();
       
       // 建立一個與標題列長度相同的空陣列
@@ -65,8 +66,13 @@ function doPost(e) {
         if (idx > -1) newRow[idx] = m.val;
       });
       
+      // 1. 先把稀疏陣列補 0
+      for (let i = 1; i < newRow.length; i++) {
+        if (newRow[i] === undefined) newRow[i] = 0;
+      }
+
       sheet.appendRow(newRow);
-      return responseJSON({ status: 'success', message: 'Reported successfully' });
+      return responseJSON({ status: 'success', message: 'Reported successfully' ,id:id});
     } 
     
     else if (action === 'update' || action === 'delete') {
@@ -89,7 +95,7 @@ function doPost(e) {
       if (rowIndex > 0) {
         if (action === 'delete') {
           sheet.deleteRow(rowIndex);
-          return responseJSON({ status: 'success', message: 'Deleted successfully' });
+          return responseJSON({ status: 'success', message: 'Deleted successfully',id:id });
         }
         else if (action === 'update') {
           // 讀取該列目前的所有資料
@@ -117,18 +123,40 @@ function doPost(e) {
           // 將更新後的整列寫回
           sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).setValues([currentRowVals]);
           
-          return responseJSON({ status: 'success', message: 'Updated successfully' });
+          return responseJSON({ status: 'success', message: 'Updated successfully',id:id });
         }
       } else {
-        return responseJSON({ status: 'error', message: 'ID not found' });
+        return responseJSON({ status: 'error', message: 'ID not found',id:id });
       }
     }
   } catch (err) {
-    return responseJSON({ status: 'error', message: err.toString() });
+    //return responseJSON({ status: 'error', message: err.toString() });
+    // 從 stack 中尋找類似 ":15" 的數字
+    const lineMatch = err.stack.match(/:(\d+):/);
+    const lineNumber = lineMatch ? lineMatch[1] : "unknown";
+
+    return responseJSON({ 
+      status: 'error', 
+      message: `${err.toString()} id:${id} (第 ${lineNumber} 行)`,
+      id:id
+    });
   }
 }
 
 function responseJSON(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+function getNextId() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const lastRow = sheet.getLastRow();
+  
+  let nextId;
+  if (lastRow < 2) {
+    nextId = 1; // 如果表單是空的，從 1 開始
+  } else {
+    const currentMaxId = sheet.getRange(lastRow, 1).getValue(); // 假設 ID 在第 1 欄
+    nextId = Number(currentMaxId) + 1;
+  }
+  return nextId;   
 }
