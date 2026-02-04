@@ -5,7 +5,6 @@ const App = {
 	// === Config ===
 	// 請確保此 URL 是您最新部署 (Versioned or Dev) 的網址
 	API_URL: "https://script.google.com/macros/s/AKfycbwjrflOu7-styIQTlkKM_Fk--bxJrDZT8w61GTA8ei2uvnL4tZQsm2cfhLx2ycqwHNcgA/exec",
-
 	// === State ===
 	state: {
 		currentUser: localStorage.getItem('qa_user') || 'Guest',

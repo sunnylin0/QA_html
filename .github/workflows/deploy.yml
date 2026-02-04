@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Replace API_URL with GitHub Variable
+        # 如果 GitHub Variables 中有設定 API_URL，則替換 src/app.js 中的網址
+        # 這裡假設 src/app.js 裡的 API_URL 寫法是 standard 的字串
+        if: ${{ vars.API_URL != '' }}
+        run: |
+          sed -i 's|API_URL: ".*"|API_URL: "${{ vars.API_URL }}"|' src/app.js
+          echo "API_URL updated to production URL from GitHub Variables"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # 上傳當前目錄 (包含 index.html, style.css, src/)
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
