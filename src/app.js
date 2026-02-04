@@ -452,5 +452,6 @@ const App = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+	console.log("App starting... API_URL:", App.API_URL);
 	App.init();
 });
