@@ -24,24 +24,25 @@ function doPost(e) {
     var action = params.action;
     
     // 取得標題列並建立映射 (Header Map)
-    // 這樣不論欄位順序如何，只要標題名稱對應得到 (不分大小寫)，就能正確寫入
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     var colMap = {};
     headers.forEach(function(h, i) { colMap[h.toString().toLowerCase()] = i; });
 
-    // 輔助函式：根據欄位名稱尋找索引 (支援多種別名)
+    // 輔助函式
     function getColIndex(names) {
       if (!Array.isArray(names)) names = [names];
       for (var i = 0; i < names.length; i++) {
         var k = names[i].toString().toLowerCase();
         if (colMap.hasOwnProperty(k)) return colMap[k];
       }
-      return -1; // 找不到該欄位
+      return -1; 
     }
 
     if (action === 'create') {
-      //var id = new Date().getTime().toString().slice(-6);
-      var id = getNextId();
+      // ID Generation: 可以改回比較嚴謹的 Max(ID)+1 掃描，
+      // 但為了保留 User 可能修改過的 getNextId 邏輯，這裡直接呼叫 getNextId()
+      // 若 User 想要更強壯的鎖定機制，建議改回 LockService 版本
+      var id = getNextId(); 
       var timestamp = params.timestamp || new Date().toLocaleString();
       
       // 建立一個與標題列長度相同的空陣列
@@ -51,7 +52,7 @@ function doPost(e) {
       // 支援英文與常見中文標題
       var maps = [
         { key: ['id', 'uuid', '編號'], val: id },
-        { key: ['status', '狀態'], val: 'New' },
+        { key: ['status', '狀態'], val: params.status || 'New' }, // Updated: Support Status param
         { key: ['module', '模組', 'module_name'], val: params.module },
         { key: ['function', 'functionname', '功能', '函式'], val: params.functionName },
         { key: ['code', '代碼', 'error_code'], val: params.code },
@@ -66,9 +67,9 @@ function doPost(e) {
         if (idx > -1) newRow[idx] = m.val;
       });
       
-      // 1. 先把稀疏陣列補 0
+      // 補 0 (Optionally keep user's logic if they added it)
       for (let i = 1; i < newRow.length; i++) {
-        if (newRow[i] === undefined) newRow[i] = 0;
+        if (newRow[i] === undefined) newRow[i] = ""; // Changed 0 to "" for cleaner empty cells
       }
 
       sheet.appendRow(newRow);
@@ -95,7 +96,7 @@ function doPost(e) {
       if (rowIndex > 0) {
         if (action === 'delete') {
           sheet.deleteRow(rowIndex);
-          return responseJSON({ status: 'success', message: 'Deleted successfully',id:id });
+          return responseJSON({ status: 'success', message: 'Deleted successfully', id:id });
         }
         else if (action === 'update') {
           // 讀取該列目前的所有資料
@@ -122,11 +123,10 @@ function doPost(e) {
 
           // 將更新後的整列寫回
           sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).setValues([currentRowVals]);
-          
-          return responseJSON({ status: 'success', message: 'Updated successfully',id:id });
+          return responseJSON({ status: 'success', message: 'Updated successfully', id:id });
         }
       } else {
-        return responseJSON({ status: 'error', message: 'ID not found',id:id });
+        return responseJSON({ status: 'error', message: 'ID not found', id:id });
       }
     }
   } catch (err) {
@@ -147,16 +147,12 @@ function responseJSON(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
 function getNextId() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const lastRow = sheet.getLastRow();
   
-  let nextId;
-  if (lastRow < 2) {
-    nextId = 1; // 如果表單是空的，從 1 開始
-  } else {
-    const currentMaxId = sheet.getRange(lastRow, 1).getValue(); // 假設 ID 在第 1 欄
-    nextId = Number(currentMaxId) + 1;
-  }
-  return nextId;   
+  if (lastRow < 2) return 1;
+  const currentMaxId = sheet.getRange(lastRow, 1).getValue(); 
+  return Number(currentMaxId) + 1;
 }
