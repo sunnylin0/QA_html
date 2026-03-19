@@ -74,8 +74,8 @@ const App = {
 	},
 
 	closeExtension() {
-		// Send message to parent to close the iframe
-		window.parent.postMessage({ action: 'qa_tracker_close' }, '*');
+		// Send message to top window to close the iframe
+		window.top.postMessage({ action: 'qa_tracker_close' }, '*');
 	},
 
 	bindEvents() {
