@@ -3,11 +3,21 @@
   "name": "QA Tracker Extension",
   "version": "1.0",
   "description": "Press Ctrl+Q to open QA Tracker for tracking bugs locally.",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "content_scripts": [
     {
-      "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://*/*",
+        "https://*/*",
+        "http://192.168.2.134/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "all_frames": true
     }
   ],
@@ -17,8 +27,14 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["index.html", "src/app.js", "style.css"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "index.html",
+        "src/app.js",
+        "style.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

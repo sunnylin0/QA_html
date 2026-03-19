@@ -35,7 +35,7 @@ document.addEventListener('keydown', function (e) {
                 try {
                     const menuDoc = topWindow.frames['menu'].document;
                     moduleName = getTreeViewPath(menuDoc);
-                } catch(e) {
+                } catch (e) {
                     console.warn("[QA Tracker] Cannot access menu document:", e);
                 }
             }
@@ -92,12 +92,12 @@ function getTreeViewPath(menuDoc) {
         if (selectedId) {
             currentNode = menuDoc.getElementById(selectedId);
         }
-        
+
         if (!currentNode) return "";
 
         let path = [currentNode.textContent.trim()];
         let currentDiv = currentNode.closest('div[id$="Nodes"]');
-        
+
         while (currentDiv) {
             let match = currentDiv.id.match(/(.+)n(\d+)Nodes$/);
             if (match) {
@@ -114,9 +114,9 @@ function getTreeViewPath(menuDoc) {
                 break;
             }
         }
-        
+
         return path.join('_');
-    } catch(e) {
+    } catch (e) {
         console.warn("[QA Tracker] getTreeViewPath error:", e);
         return "";
     }
@@ -190,3 +190,69 @@ function toggleQAOverlay(pageUrl, funName = "", moduleName = "") {
         }
     }
 }
+
+// --- Menu Tree Node Disabler ---
+if (window.name === 'menu' || window.location.href.includes('labMenu.aspx') || window.location.href.includes('labMenu.html')) {
+    //欄位名稱文字加一橫線
+    const disabledNodes =
+        ['AA91', 'AA92', 'AA93', 'AA94', 'AA95', 'AA96', 'AA97', 'AF67', 'AF68', 'AF69', 'AF70', 'AG03', 'AG04', 'AG05', 'AG06', 'AG07', 'AG08', 'AG09', 'AG10',
+            'CE40', 'CE39', 'CE61', 'CE64', 'CE65', 'CE66', 'CE67', 'CE68', 'CE69', 'CE70', 'CE71', 'CE72', 'CE83', 'CE84', 'CE85', 'CE86',
+            'CF01', 'CF02', 'CF03', 'CF04', 'CF05', 'CF06', 'CF07', 'CF08', 'CF09', 'CF10', 'CF11', 'CF12', 'CF13', 'CF14', 'CF15', 'CF16', 'CF17', 'CF18', 'CF19', 'CF20', 'CF21',
+            'CG51', 'CG52', 'CG55', 'CG44', 'CG45', 'CG46', 'CG47', 'CG48', 'CG49', 'CM54', 'EA01', 'AP01', 'AP02', 'AP03', 'AP04',
+            'PK01', 'PK02', 'PK03', 'PK04', 'PK05', 'PK06', 'PK07', 'PK08', 'PK09', 'PK10'];
+
+
+    console.log("[QA Tracker] Menu Tree Node Disabler loaded  lin123.");
+    const disableMenuNodes = () => {
+        const links = document.querySelectorAll('a');
+        links.forEach(a => {
+            const href = a.getAttribute('href') || '';
+            let shouldDisable = false;
+            for (let i = 0; i < disabledNodes.length; i++) {
+                // Check both literal string and unescaped version
+                const p1 = '\\' + disabledNodes[i];
+                //const p2 = p1.replace(/\\\\/g, '\\');
+                if (href.includes(p1)) {
+                    shouldDisable = true;
+                    break;
+                }
+            }
+            if (shouldDisable) {
+                a.style.textDecoration = 'line-through';
+                a.style.color = '#999';
+                a.style.pointerEvents = 'none';
+                a.onclick = function (e) { e.preventDefault(); e.stopPropagation(); return false; };
+
+                if (a.parentElement) {
+                    a.parentElement.onmouseover = null;
+                    a.parentElement.onmouseout = null;
+                    a.parentElement.style.pointerEvents = 'none';
+                }
+            }
+        });
+    };
+
+    // Run initially
+    setTimeout(disableMenuNodes, 1000);
+
+    // Observer for dynamically expanded tree nodes
+    const observer = new MutationObserver(() => {
+        disableMenuNodes();
+    });
+
+    const startObserver = () => {
+        if (document.body) {
+            observer.observe(document.body, { childList: true, subtree: true });
+            disableMenuNodes();
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                observer.observe(document.body, { childList: true, subtree: true });
+                disableMenuNodes();
+            });
+        }
+    };
+
+    startObserver();
+}
+
+

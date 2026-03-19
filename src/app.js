@@ -33,9 +33,10 @@ const App = {
 		const autoUrl = urlParams.get('url');
 		const funName = urlParams.get('funName');
 		const moduleName = urlParams.get('moduleName');
-		
+
 		if (autoUrl) {
 			// Extract filename without extension (e.g. AA3101)
+			let code_fileName = autoUrl;
 			let fileName = autoUrl;
 			try {
 				let pathStr = autoUrl;
@@ -47,13 +48,15 @@ const App = {
 				const pathParts = pathStr.split('/');
 				const lastPart = pathParts[pathParts.length - 1]; // "AA3101.aspx"
 				fileName = lastPart.split('.')[0] || lastPart; // "AA3101"
-			} catch(e) {
+				const code = funName.substring(0, 4); //AC30 各月收入統計表(AA31) -> "AC30"
+				code_fileName = code + "_" + fileName; // "AC30_AA3101"
+			} catch (e) {
 				console.warn('URL Parse error', e);
 			}
 
 			const item = this.state.data.find(d => {
 				const map = this.getItemMap(d);
-				return map.code === fileName;
+				return map.code === code_fileName;
 			});
 
 			if (item) {
@@ -61,7 +64,7 @@ const App = {
 				this.openModal(item);
 			} else {
 				this.switchTab('report');
-				document.getElementById('r_code').value = fileName; 
+				document.getElementById('r_code').value = code_fileName;
 				document.getElementById('r_url').value = autoUrl;
 				if (funName) {
 					document.getElementById('r_function').value = funName;
