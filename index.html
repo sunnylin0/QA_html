@@ -5,7 +5,8 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>QA 問題回報系統</title>
-	<link rel="stylesheet" href="style.css">
+	<!-- Cache-busted stylesheet -->
+	<link rel="stylesheet" href="style.css?v=2">
 </head>
 
 <body>
@@ -15,15 +16,18 @@
 	<nav>
 		<div class="nav-brand">QA Tracker</div>
 		<div class="nav-links">
-			<button class="active" onclick="App.switchTab('report')">問題回報</button>
-			<button onclick="App.switchTab('list')">修正列表</button>
+			<button class="active" data-cmd="switchTab" data-arg="report">問題回報</button>
+			<button data-cmd="switchTab" data-arg="list">修正列表</button>
 		</div>
-		<div class="user-profile" onclick="App.editUser()">
-			<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-					d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-			</svg>
-			<span id="userNameDisplay">Guest</span>
+		<div style="display:flex; align-items:center; gap:1rem;">
+			<div class="user-profile" data-cmd="editUser">
+				<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+						d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+				</svg>
+				<span id="userNameDisplay">Guest</span>
+			</div>
+			<button class="btn btn-sm btn-danger" data-cmd="closeExtension">關閉 (Esc)</button>
 		</div>
 	</nav>
 
@@ -42,6 +46,8 @@
 								<option value="New" selected>New</option>
 								<option value="Fixed">Fixed</option>
 								<option value="Closed">Closed</option>
+								<option value="OK">OK</option>
+								<option value="Revise">Revise</option>
 							</select>
 						</div>
 						<div class="form-group">
@@ -67,7 +73,7 @@
 					</div>
 					<div style="text-align: right; margin-top: 1rem; display:flex; justify-content:flex-end; gap:1rem;">
 						<button type="button" class="btn btn-secondary" id="r_cancelBtn" style="display:none;"
-							onclick="App.cancelReportEdit()">取消編輯</button>
+							data-cmd="cancelReportEdit">取消編輯</button>
 						<button type="submit" id="r_submitBtn" class="btn btn-primary">提交回報</button>
 					</div>
 				</form>
@@ -78,7 +84,7 @@
 					<h3 style="color:var(--text-secondary); margin:0;">最近回報紀錄 (Top 10)</h3>
 					<div class="search-input" style="width:300px;">
 						<input type="text" id="reportSearchInput" placeholder="搜尋回報紀錄..."
-							oninput="App.handleReportSearch(this.value)">
+							data-input-cmd="handleReportSearch">
 					</div>
 				</div>
 
@@ -110,25 +116,27 @@
 			<div class="filter-bar" style="display:flex; align-items:center; gap:1rem;">
 				<div class="search-input" style="flex:1; display:flex; gap:0.5rem; max-width:70%;">
 					<!-- Inline Search + Filter -->
-					<input type="text" id="searchInput" placeholder="搜尋 ID, 模組, 描述..."
-						oninput="App.handleSearch(this.value)" style="flex:1;">
-					<select id="statusFilter" onchange="App.handleFilter()" style="width:150px;">
+					<input type="text" id="searchInput" placeholder="搜尋 ID, 模組, 描述..." data-input-cmd="handleSearch"
+						style="flex:1;">
+					<select id="statusFilter" data-change-cmd="handleFilter" style="width:150px;">
 						<option value="All">所有狀態</option>
 						<option value="New">New</option>
 						<option value="Fixed">Fixed</option>
 						<option value="Closed">Closed</option>
+						<option value="OK">OK</option>
+						<option value="Revise">Revise</option>
+
 					</select>
 				</div>
 
 				<div style="margin-left:auto; display:flex; gap:0.5rem; align-items:center;">
-					<select id="pageSizeSelect" onchange="App.changePageSize(this.value)"
-						style="width:auto; padding:0.4rem;">
+					<select id="pageSizeSelect" data-change-cmd="changePageSize" style="width:auto; padding:0.4rem;">
 						<option value="10">10 筆/頁</option>
 						<option value="20" selected>20 筆/頁</option>
 						<option value="50">50 筆/頁</option>
 						<option value="100">100 筆/頁</option>
 					</select>
-					<button class="btn btn-secondary btn-sm" onclick="App.refreshData()">重新整理</button>
+					<button class="btn btn-secondary btn-sm" data-cmd="refreshData">重新整理</button>
 				</div>
 			</div>
 			<div style="margin-bottom:0.5rem; font-size:0.9rem; color:var(--text-secondary); text-align:right;">
@@ -157,9 +165,9 @@
 
 			<div id="pagination"
 				style="margin-top:1.5rem; display:flex; justify-content:center; gap:1rem; align-items:center;">
-				<button class="btn btn-secondary btn-sm" onclick="App.prevPage()">&lt; 上一頁</button>
+				<button class="btn btn-secondary btn-sm" data-cmd="prevPage">&lt; 上一頁</button>
 				<span id="pageInfo" style="color:var(--text-secondary); font-size:0.9rem;">Page 1</span>
-				<button class="btn btn-secondary btn-sm" onclick="App.nextPage()">下一頁 &gt;</button>
+				<button class="btn btn-secondary btn-sm" data-cmd="nextPage">下一頁 &gt;</button>
 			</div>
 		</div>
 
@@ -189,10 +197,12 @@
 
 					<div class="form-group">
 						<label>Status 狀態</label>
-						<select id="edit_status" onchange="App.checkStatusColor(this)">
+						<select id="edit_status" data-change-cmd="checkStatusColor">
 							<option value="New">New</option>
 							<option value="Fixed">Fixed</option>
 							<option value="Closed">Closed</option>
+							<option value="OK">OK</option>
+							<option value="Revise">Revise</option>
 						</select>
 					</div>
 					<div class="form-group">
@@ -220,14 +230,15 @@
 				</div>
 
 				<div style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
-					<button type="button" class="btn btn-secondary" onclick="App.closeModal()">取消</button>
+					<button type="button" class="btn btn-secondary" data-cmd="closeModal">取消</button>
 					<button type="submit" class="btn btn-primary">儲存變更</button>
 				</div>
 			</form>
 		</div>
 	</div>
 
-	<script src="src/app.js"></script>
+	<!-- Cache-busted script -->
+	<script src="src/app.js?v=2"></script>
 </body>
 
 </html>

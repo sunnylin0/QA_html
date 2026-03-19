@@ -21,10 +21,61 @@ const App = {
 	},
 
 	// === Initialization ===
-	init() {
+	async init() {
 		this.updateUserDisplay();
 		this.bindEvents();
-		this.fetchData();
+		await this.fetchData();
+		this.checkAutoOpen();
+	},
+
+	checkAutoOpen() {
+		const urlParams = new URLSearchParams(window.location.search);
+		const autoUrl = urlParams.get('url');
+		const funName = urlParams.get('funName');
+		const moduleName = urlParams.get('moduleName');
+		
+		if (autoUrl) {
+			// Extract filename without extension (e.g. AA3101)
+			let fileName = autoUrl;
+			try {
+				let pathStr = autoUrl;
+				// If it's a full URL, get just the pathname
+				if (autoUrl.startsWith('http')) {
+					const urlObj = new URL(autoUrl);
+					pathStr = urlObj.pathname;
+				}
+				const pathParts = pathStr.split('/');
+				const lastPart = pathParts[pathParts.length - 1]; // "AA3101.aspx"
+				fileName = lastPart.split('.')[0] || lastPart; // "AA3101"
+			} catch(e) {
+				console.warn('URL Parse error', e);
+			}
+
+			const item = this.state.data.find(d => {
+				const map = this.getItemMap(d);
+				return map.code === fileName;
+			});
+
+			if (item) {
+				this.switchTab('list');
+				this.openModal(item);
+			} else {
+				this.switchTab('report');
+				document.getElementById('r_code').value = fileName; 
+				document.getElementById('r_url').value = autoUrl;
+				if (funName) {
+					document.getElementById('r_function').value = funName;
+				}
+				if (moduleName) {
+					document.getElementById('r_module').value = moduleName;
+				}
+			}
+		}
+	},
+
+	closeExtension() {
+		// Send message to parent to close the iframe
+		window.parent.postMessage({ action: 'qa_tracker_close' }, '*');
 	},
 
 	bindEvents() {
@@ -40,6 +91,48 @@ const App = {
 
 		document.getElementById('fixModal').addEventListener('click', (e) => {
 			if (e.target.id === 'fixModal') this.closeModal();
+		});
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') {
+				// Only close extension if fixModal is NOT active, or fallback
+				const modal = document.getElementById('fixModal');
+				if (modal.classList.contains('active')) {
+					this.closeModal();
+				} else {
+					this.closeExtension();
+				}
+			}
+		});
+
+		// Global Event Delegation for MV3 `data-cmd`
+		document.addEventListener('click', (e) => {
+			const target = e.target.closest('[data-cmd]');
+			if (target) {
+				const cmd = target.getAttribute('data-cmd');
+				const arg = target.getAttribute('data-arg');
+				console.log("[QA Tracker] Clicked cmd:", cmd, "arg:", arg);
+				if (cmd === 'openLink') window.open(arg, '_blank');
+				else if (typeof App[cmd] === 'function') App[cmd](arg);
+			}
+		});
+
+		document.addEventListener('input', (e) => {
+			const target = e.target.closest('[data-input-cmd]');
+			if (target && typeof App[target.getAttribute('data-input-cmd')] === 'function') {
+				console.log("[QA Tracker] Input cmd:", target.getAttribute('data-input-cmd'));
+				App[target.getAttribute('data-input-cmd')](target.value);
+			}
+		});
+
+		document.addEventListener('change', (e) => {
+			const target = e.target.closest('[data-change-cmd]');
+			if (target) {
+				const cmd = target.getAttribute('data-change-cmd');
+				console.log("[QA Tracker] Change cmd:", cmd);
+				if (cmd === 'checkStatusColor') App.checkStatusColor(target);
+				else if (typeof App[cmd] === 'function') App[cmd](target.value);
+			}
 		});
 	},
 
@@ -218,7 +311,7 @@ const App = {
 			const shortDesc = (map.desc && map.desc.length > 30) ? map.desc.substring(0, 30) + '...' : map.desc;
 			const shortTime = map.time ? map.time.split(' ')[0] : '-';
 			const linkBtn = map.url && map.url.startsWith('http')
-				? `<button class="btn btn-sm btn-secondary" onclick="window.open('${map.url}', '_blank')">連結</button>`
+				? `<button class="btn btn-sm btn-secondary" data-cmd="openLink" data-arg="${map.url}">連結</button>`
 				: '';
 
 			// Edit uses editReport now
@@ -231,9 +324,9 @@ const App = {
                 <td style="font-size:0.8rem; color:#94a3b8;">${shortTime}</td>
                 <td style="text-align:right;">
                     ${linkBtn}
-                    <button class="btn btn-sm btn-info" onclick="App.copyReport('${map.id}')">複製</button>
-                    <button class="btn btn-sm btn-secondary" onclick="App.editReport('${map.id}')">修改</button>
-                    <button class="btn btn-sm btn-danger" onclick="App.deleteData('${map.id}')">刪除</button>
+                    <button class="btn btn-sm btn-info" data-cmd="copyReport" data-arg="${map.id}">複製</button>
+                    <button class="btn btn-sm btn-secondary" data-cmd="editReport" data-arg="${map.id}">修改</button>
+                    <button class="btn btn-sm btn-danger" data-cmd="deleteData" data-arg="${map.id}">刪除</button>
                 </td>
             `;
 			tbody.appendChild(tr);
@@ -348,7 +441,7 @@ const App = {
 			const tr = document.createElement('tr');
 
 			const linkBtn = map.url && map.url.startsWith('http')
-				? `<button class="btn btn-sm btn-secondary" onclick="window.open('${map.url}', '_blank')">開啟</button>`
+				? `<button class="btn btn-sm btn-secondary" data-cmd="openLink" data-arg="${map.url}">開啟</button>`
 				: '<span style="color:#64748b; font-size:0.8rem;">無連結</span>';
 
 			tr.innerHTML = `
@@ -360,7 +453,7 @@ const App = {
                 <td>${map.reporter}</td>
                 <td style="text-align:right;">
                     ${linkBtn}
-                    <button class="btn btn-sm btn-secondary" onclick="App.openModalById('${map.id}')">編輯</button>
+                    <button class="btn btn-sm btn-secondary" data-cmd="openModalById" data-arg="${map.id}">編輯</button>
                 </td>
             `;
 			tbody.appendChild(tr);
