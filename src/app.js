@@ -26,6 +26,11 @@ const App = {
 		this.bindEvents();
 		await this.fetchData();
 		this.checkAutoOpen();
+
+		// 每 5 分鐘背景自動更新一次 (300,000 毫秒)
+		setInterval(() => {
+			this.backgroundFetchData();
+		}, 5 * 60 * 1000);
 	},
 
 	checkAutoOpen() {
@@ -164,12 +169,64 @@ const App = {
 	},
 
 	// === Data Fetching ===
-	async fetchData() {
+	async backgroundFetchData() {
+		try {
+			console.log("[QA Tracker] Background fetching fresh data...");
+			const res = await fetch(this.API_URL);
+			const data = await res.json();
+			const newData = data.reverse();
+			
+			const cacheKey = 'qa_data_cache';
+			const cacheTimeKey = 'qa_data_cache_time';
+			
+			// 背景自動下載寫入 session
+			sessionStorage.setItem(cacheKey, JSON.stringify(newData));
+			sessionStorage.setItem(cacheTimeKey, new Date().getTime().toString());
+			
+			// 如果使用者當下沒有在編輯，順便幫他更新 UI
+			if (!this.state.isEditingReport) {
+				const modal = document.getElementById('fixModal');
+				if (modal && !modal.classList.contains('active')) {
+					this.state.data = newData;
+					this.applyFilter();
+					this.renderRecentReports();
+				}
+			}
+		} catch (err) {
+			console.warn("[QA Tracker] Background fetch failed:", err);
+		}
+	},
+
+	async fetchData(forceRefresh = false) {
 		this.showLoading(true);
 		try {
+			const cacheKey = 'qa_data_cache';
+			const cacheTimeKey = 'qa_data_cache_time';
+			const cacheExpiry = 5 * 60 * 1000; // 5 minutes
+
+			if (!forceRefresh) {
+				const cachedData = sessionStorage.getItem(cacheKey);
+				const cachedTime = sessionStorage.getItem(cacheTimeKey);
+
+				if (cachedData && cachedTime) {
+					const now = new Date().getTime();
+					if (now - parseInt(cachedTime, 10) < cacheExpiry) {
+						console.log("[QA Tracker] Using cached data from sessionStorage.");
+						this.state.data = JSON.parse(cachedData);
+						this.applyFilter();
+						this.renderRecentReports();
+						return;
+					}
+				}
+			}
+
+			console.log("[QA Tracker] Fetching fresh data from API_URL.");
 			const res = await fetch(this.API_URL);
 			const data = await res.json();
 			this.state.data = data.reverse(); // Newest first
+
+			sessionStorage.setItem(cacheKey, JSON.stringify(this.state.data));
+			sessionStorage.setItem(cacheTimeKey, new Date().getTime().toString());
 
 			this.applyFilter();
 			this.renderRecentReports();
@@ -279,7 +336,7 @@ const App = {
 		if (res.status === 'success') {
 			alert(isUpdate ? "修改成功！" : `回報成功！ID: ${res.id}`);
 			this.cancelReportEdit(); // Reset form
-			this.fetchData();
+			this.fetchData(true);
 		} else {
 			alert("操作失敗: " + res.message);
 		}
@@ -404,7 +461,7 @@ const App = {
 		}
 	},
 
-	refreshData() { this.fetchData(); },
+	refreshData() { this.fetchData(true); },
 
 	applyFilter() {
 		const { data, searchQuery, filterStatus } = this.state;
@@ -525,7 +582,7 @@ const App = {
 		if (res.status === 'success') {
 			alert("更新成功！");
 			this.closeModal();
-			this.fetchData();
+			this.fetchData(true);
 		} else {
 			alert("更新失敗: " + res.message);
 		}
@@ -541,7 +598,7 @@ const App = {
 
 		if (res.status === 'success') {
 			alert("刪除成功");
-			this.fetchData();
+			this.fetchData(true);
 		} else {
 			alert("刪除失敗: " + res.message);
 		}
