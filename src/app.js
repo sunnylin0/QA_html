@@ -489,6 +489,7 @@ const App = {
 		document.getElementById('edit_module').value = map.mod || ''; // Readonly field
 		document.getElementById('edit_function').value = map.func || ''; // Readonly field
 		document.getElementById('edit_code').value = map.code || ''; // Readonly field
+		document.getElementById('edit_url').value = map.url || ''; // Readonly field
 
 		document.getElementById('edit_fixer').value = map.fixer || this.state.currentUser;
 		document.getElementById('edit_fixNote').value = map.fixNote;

@@ -195,7 +195,7 @@ function toggleQAOverlay(pageUrl, funName = "", moduleName = "") {
 if (window.name === 'menu' || window.location.href.includes('labMenu.aspx') || window.location.href.includes('labMenu.html')) {
     //欄位名稱文字加一橫線
     const disabledNodes =
-        ['AA91', 'AA92', 'AA93', 'AA94', 'AA95', 'AA96', 'AA97', 'AF67', 'AF68', 'AF69', 'AF70', 'AG03', 'AG04', 'AG05', 'AG06', 'AG07', 'AG08', 'AG09', 'AG10',
+        ['AA03','AA37','AA91', 'AA92', 'AA93', 'AA94', 'AA95', 'AA96', 'AA97', 'AF67', 'AF68', 'AF69', 'AF70', 'AG03', 'AG04', 'AG05', 'AG06', 'AG07', 'AG08', 'AG09', 'AG10',
             'CE40', 'CE39', 'CE61', 'CE64', 'CE65', 'CE66', 'CE67', 'CE68', 'CE69', 'CE70', 'CE71', 'CE72', 'CE83', 'CE84', 'CE85', 'CE86',
             'CF01', 'CF02', 'CF03', 'CF04', 'CF05', 'CF06', 'CF07', 'CF08', 'CF09', 'CF10', 'CF11', 'CF12', 'CF13', 'CF14', 'CF15', 'CF16', 'CF17', 'CF18', 'CF19', 'CF20', 'CF21',
             'CG51', 'CG52', 'CG55', 'CG44', 'CG45', 'CG46', 'CG47', 'CG48', 'CG49', 'CM54', 'EA01', 'AP01', 'AP02', 'AP03', 'AP04',
