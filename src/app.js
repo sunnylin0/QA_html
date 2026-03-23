@@ -328,7 +328,7 @@ const App = {
 			code: document.getElementById('r_code').value,
 			url: document.getElementById('r_url').value,
 			description: document.getElementById('r_description').value,
-			timestamp: new Date().toLocaleString('sv'),
+			timestamp: new Date().toLocaleDateString('zh-TW'),
 			reporter: this.state.currentUser
 		};
 
@@ -575,7 +575,7 @@ const App = {
 			status: document.getElementById('edit_status').value,
 			fixer: localStorage.getItem('qa_user') || 'Guest',
 			fixNote: document.getElementById('edit_fixNote').value,
-			fixTime: new Date().toLocaleString()
+			fixTime:  new Date().toLocaleDateString('zh-TW')
 		};
 
 		const res = await this.postData(payload);

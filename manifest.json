@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
   "name": "QA Tracker Extension",
-  "version": "1.0",
+  "version": "1.1.0",
   "description": "Press Ctrl+Q to open QA Tracker for tracking bugs locally.",
+  "icons": {
+    "16": "icons/icon.png",
+	"48": "icons/icon.png",
+	"128": "icons/icon.png"
+  },
   "permissions": [
     "storage"
   ],
@@ -11,8 +16,6 @@
       "matches": [
         "http://localhost/*",
         "http://127.0.0.1/*",
-        "http://*/*",
-        "https://*/*",
         "http://192.168.2.134/*"
       ],
       "js": [
