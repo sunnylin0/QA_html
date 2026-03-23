@@ -68,7 +68,35 @@ const App = {
 	},
 
 	// === Data Fetching ===
-	async fetchData() {
+	async backgroundFetchData() {
+		try {
+			console.log("[QA Tracker] Background fetching fresh data...");
+			const res = await fetch(this.API_URL);
+			const data = await res.json();
+			const newData = data.reverse();
+
+			const cacheKey = 'qa_data_cache';
+			const cacheTimeKey = 'qa_data_cache_time';
+
+			// 背景自動下載寫入 session
+			sessionStorage.setItem(cacheKey, JSON.stringify(newData));
+			sessionStorage.setItem(cacheTimeKey, new Date().getTime().toString());
+
+			// 如果使用者當下沒有在編輯，順便幫他更新 UI
+			if (!this.state.isEditingReport) {
+				const modal = document.getElementById('fixModal');
+				if (modal && !modal.classList.contains('active')) {
+					this.state.data = newData;
+					this.applyFilter();
+					this.renderRecentReports();
+				}
+			}
+		} catch (err) {
+			console.warn("[QA Tracker] Background fetch failed:", err);
+		}
+	},
+
+	async fetchData(forceRefresh = false) {
 		this.showLoading(true);
 		try {
 			const res = await fetch(this.API_URL);
@@ -175,7 +203,7 @@ const App = {
 			code: document.getElementById('r_code').value,
 			url: document.getElementById('r_url').value,
 			description: document.getElementById('r_description').value,
-			timestamp: new Date().toLocaleString('sv'),
+			timestamp: new Date().toLocaleDateString('zh-TW'),
 			reporter: this.state.currentUser
 		};
 
@@ -421,7 +449,7 @@ const App = {
 			status: document.getElementById('edit_status').value,
 			fixer: localStorage.getItem('qa_user') || 'Guest',
 			fixNote: document.getElementById('edit_fixNote').value,
-			fixTime: new Date().toLocaleString()
+			fixTime: new Date().toLocaleDateString('zh-TW')
 		};
 
 		const res = await this.postData(payload);
