@@ -1,16 +1,27 @@
 // content.js
-console.log("[QA Tracker] content.js loaded on:", window.location.href);
+//console.log("[QA Tracker] content.js loaded on:", window.location.href);
 
 document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey && e.key.toLowerCase() === 'q') {
-        console.log("[QA Tracker] Ctrl+Q pressed!");
+    if ((e.ctrlKey || e.altKey) && e.key.toLowerCase() === 'q') {
+        const isAlt = e.altKey;
+        console.log(`[QA Tracker] ${isAlt ? 'Alt' : 'Ctrl'}+Q pressed!`);
         e.preventDefault();
 
         let pageUrl = "";
         let funName = "";
         let moduleName = "";
+        let titleName = "";
         try {
             const topWindow = window.top;
+            
+            // Capture Title from main frame if possible, else current
+            if (topWindow.frames && topWindow.frames['main']) {
+                try {
+                    titleName = topWindow.frames['main'].document.title;
+                } catch(e) {}
+            }
+            if (!titleName) titleName = document.title;
+            
             if (topWindow.frames && topWindow.frames['main']) {
                 pageUrl = topWindow.frames['main'].location.href;
             } else {
@@ -43,14 +54,14 @@ document.addEventListener('keydown', function (e) {
             pageUrl = window.location.href;
         }
 
-        console.log("[QA Tracker] Captured pageUrl:", pageUrl, "funName:", funName, "moduleName:", moduleName);
+        console.log("[QA Tracker] Captured pageUrl:", pageUrl, "funName:", funName, "moduleName:", moduleName, "titleName:", titleName);
 
         if (window !== window.top) {
             console.log("[QA Tracker] Sending message to top window to open overlay");
-            window.top.postMessage({ action: 'qa_tracker_toggle', url: pageUrl, funName: funName, moduleName: moduleName }, '*');
+            window.top.postMessage({ action: 'qa_tracker_toggle', url: pageUrl, funName: funName, moduleName: moduleName, titleName: titleName, mode: isAlt ? 'alt' : 'ctrl' }, '*');
         } else {
             console.log("[QA Tracker] Opening overlay in current window");
-            toggleQAOverlay(pageUrl, funName, moduleName);
+            toggleQAOverlay(pageUrl, funName, moduleName, titleName, isAlt ? 'alt' : 'ctrl');
         }
     }
 
@@ -69,7 +80,7 @@ if (window === window.top) {
     window.addEventListener('message', function (event) {
         if (event.data) {
             if (event.data.action === 'qa_tracker_toggle') {
-                toggleQAOverlay(event.data.url, event.data.funName, event.data.moduleName);
+                toggleQAOverlay(event.data.url, event.data.funName, event.data.moduleName, event.data.titleName, event.data.mode);
             } else if (event.data.action === 'qa_tracker_close') {
                 closeQAOverlay();
             }
@@ -149,11 +160,16 @@ function closeQAOverlay() {
     }
 }
 
-function toggleQAOverlay(pageUrl, funName = "", moduleName = "") {
+function toggleQAOverlay(pageUrl, funName = "", moduleName = "", titleName = "", mode = "ctrl") {
     let targetDoc = getTargetDocument();
     let iframe = targetDoc.getElementById('qa-tracker-extension-iframe');
 
-    const extensionUrl = chrome.runtime.getURL('index.html') + '?url=' + encodeURIComponent(pageUrl) + '&funName=' + encodeURIComponent(funName) + '&moduleName=' + encodeURIComponent(moduleName);
+    const extensionUrl = chrome.runtime.getURL('index.html') + 
+        '?url=' + encodeURIComponent(pageUrl) + 
+        '&funName=' + encodeURIComponent(funName) + 
+        '&moduleName=' + encodeURIComponent(moduleName) +
+        '&titleName=' + encodeURIComponent(titleName) +
+        '&mode=' + encodeURIComponent(mode);
 
     if (!iframe) {
         console.log("[QA Tracker] Creating iframe in", targetDoc.location.href);
@@ -195,7 +211,7 @@ function toggleQAOverlay(pageUrl, funName = "", moduleName = "") {
 if (window.name === 'menu' || window.location.href.includes('labMenu.aspx') || window.location.href.includes('labMenu.html')) {
     //欄位名稱文字加一橫線
     const disabledNodes =
-        ['AA03','AA37','AA91', 'AA92', 'AA93', 'AA94', 'AA95', 'AA96', 'AA97', 'AF67', 'AF68', 'AF69', 'AF70', 'AG03', 'AG04', 'AG05', 'AG06', 'AG07', 'AG08', 'AG09', 'AG10',
+        ['AA03', 'AA37', 'AA91', 'AA92', 'AA93', 'AA94', 'AA95', 'AA96', 'AA97', 'AF67', 'AF68', 'AF69', 'AF70', 'AG03', 'AG04', 'AG05', 'AG06', 'AG07', 'AG08', 'AG09', 'AG10',
             'CE40', 'CE39', 'CE61', 'CE64', 'CE65', 'CE66', 'CE67', 'CE68', 'CE69', 'CE70', 'CE71', 'CE72', 'CE83', 'CE84', 'CE85', 'CE86',
             'CF01', 'CF02', 'CF03', 'CF04', 'CF05', 'CF06', 'CF07', 'CF08', 'CF09', 'CF10', 'CF11', 'CF12', 'CF13', 'CF14', 'CF15', 'CF16', 'CF17', 'CF18', 'CF19', 'CF20', 'CF21',
             'CG51', 'CG52', 'CG55', 'CG44', 'CG45', 'CG46', 'CG47', 'CG48', 'CG49', 'CM54', 'EA01', 'AP01', 'AP02', 'AP03', 'AP04',

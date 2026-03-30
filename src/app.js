@@ -17,7 +17,8 @@ const App = {
 
 		// Report Tab State
 		reportSearchQuery: '',
-		isEditingReport: false
+		isEditingReport: false,
+		capturedTitle: ''
 	},
 
 	// === Initialization ===
@@ -32,12 +33,14 @@ const App = {
 			this.backgroundFetchData();
 		}, 5 * 60 * 1000);
 	},
-
+	isEmpty: (val) => !val || val.trim().length === 0,
 	checkAutoOpen() {
 		const urlParams = new URLSearchParams(window.location.search);
 		const autoUrl = urlParams.get('url');
 		const funName = urlParams.get('funName');
 		const moduleName = urlParams.get('moduleName');
+		const titleName = urlParams.get('titleName');
+		this.state.capturedTitle = titleName || "";
 
 		if (autoUrl) {
 			// Extract filename without extension (e.g. AA3101)
@@ -53,8 +56,12 @@ const App = {
 				const pathParts = pathStr.split('/');
 				const lastPart = pathParts[pathParts.length - 1]; // "AA3101.aspx"
 				fileName = lastPart.split('.')[0] || lastPart; // "AA3101"
-				const code = funName.substring(0, 4); //AC30 各月收入統計表(AA31) -> "AC30"
-				code_fileName = code + "_" + fileName; // "AC30_AA3101"
+				if (this.isEmpty(funName)) {
+					code_fileName = fileName;
+				} else {
+					const code = funName.substring(0, 4); //AC30 各月收入統計表(AA31) -> "AC30"
+					code_fileName = code + "_" + fileName; // "AC30_AA3101"
+				}
 			} catch (e) {
 				console.warn('URL Parse error', e);
 			}
@@ -65,14 +72,25 @@ const App = {
 			});
 
 			if (item) {
-				this.switchTab('list');
-				this.openModal(item);
+				const mode = urlParams.get('mode');
+				if (mode === 'alt') {
+					// Alt+Q: 若找到資料，直接進入「編輯模式」
+					const map = this.getItemMap(item);
+					this.switchTab('report');
+					this.editReport(map.id);
+				} else {
+					// Ctrl+Q: 若找到資料，開啟「處理視窗 (Fix Modal)」
+					this.switchTab('list');
+					this.openModal(item);
+				}
 			} else {
 				this.switchTab('report');
 				document.getElementById('r_code').value = code_fileName;
 				document.getElementById('r_url').value = autoUrl;
 				if (funName) {
 					document.getElementById('r_function').value = funName;
+				} else {
+					document.getElementById('r_function').value = titleName || "";
 				}
 				if (moduleName) {
 					document.getElementById('r_module').value = moduleName;
@@ -175,14 +193,14 @@ const App = {
 			const res = await fetch(this.API_URL);
 			const data = await res.json();
 			const newData = data.reverse();
-			
+
 			const cacheKey = 'qa_data_cache';
 			const cacheTimeKey = 'qa_data_cache_time';
-			
+
 			// 背景自動下載寫入 session
 			sessionStorage.setItem(cacheKey, JSON.stringify(newData));
 			sessionStorage.setItem(cacheTimeKey, new Date().getTime().toString());
-			
+
 			// 如果使用者當下沒有在編輯，順便幫他更新 UI
 			if (!this.state.isEditingReport) {
 				const modal = document.getElementById('fixModal');
@@ -329,7 +347,8 @@ const App = {
 			url: document.getElementById('r_url').value,
 			description: document.getElementById('r_description').value,
 			timestamp: new Date().toLocaleDateString('zh-TW'),
-			reporter: this.state.currentUser
+			reporter: this.state.currentUser,
+			pageTitle: this.state.capturedTitle // Add titleName property
 		};
 
 		const res = await this.postData(payload);
@@ -575,7 +594,7 @@ const App = {
 			status: document.getElementById('edit_status').value,
 			fixer: localStorage.getItem('qa_user') || 'Guest',
 			fixNote: document.getElementById('edit_fixNote').value,
-			fixTime:  new Date().toLocaleDateString('zh-TW')
+			fixTime: new Date().toLocaleDateString('zh-TW')
 		};
 
 		const res = await this.postData(payload);
