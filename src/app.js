@@ -17,14 +17,91 @@ const App = {
 
 		// Report Tab State
 		reportSearchQuery: '',
-		isEditingReport: false
+		isEditingReport: false,
+		capturedTitle: ''
 	},
 
 	// === Initialization ===
-	init() {
+	async init() {
 		this.updateUserDisplay();
 		this.bindEvents();
-		this.fetchData();
+		await this.fetchData();
+		this.checkAutoOpen();
+
+		// 每 5 分鐘背景自動更新一次 (300,000 毫秒)
+		setInterval(() => {
+			this.backgroundFetchData();
+		}, 5 * 60 * 1000);
+	},
+	isEmpty: (val) => !val || val.trim().length === 0,
+	checkAutoOpen() {
+		const urlParams = new URLSearchParams(window.location.search);
+		const autoUrl = urlParams.get('url');
+		const funName = urlParams.get('funName');
+		const moduleName = urlParams.get('moduleName');
+		const titleName = urlParams.get('titleName');
+		this.state.capturedTitle = titleName || "";
+
+		if (autoUrl) {
+			// Extract filename without extension (e.g. AA3101)
+			let code_fileName = autoUrl;
+			let fileName = autoUrl;
+			try {
+				let pathStr = autoUrl;
+				// If it's a full URL, get just the pathname
+				if (autoUrl.startsWith('http')) {
+					const urlObj = new URL(autoUrl);
+					pathStr = urlObj.pathname;
+				}
+				const pathParts = pathStr.split('/');
+				const lastPart = pathParts[pathParts.length - 1]; // "AA3101.aspx"
+				fileName = lastPart.split('.')[0] || lastPart; // "AA3101"
+				if (this.isEmpty(funName)) {
+					code_fileName = fileName;
+				} else {
+					const code = funName.substring(0, 4); //AC30 各月收入統計表(AA31) -> "AC30"
+					code_fileName = code + "_" + fileName; // "AC30_AA3101"
+				}
+			} catch (e) {
+				console.warn('URL Parse error', e);
+			}
+
+			const item = this.state.data.find(d => {
+				const map = this.getItemMap(d);
+				return map.code === code_fileName;
+			});
+
+			if (item) {
+				const mode = urlParams.get('mode');
+				if (mode === 'alt') {
+					// Alt+Q: 若找到資料，直接進入「編輯模式」
+					const map = this.getItemMap(item);
+					this.switchTab('report');
+					this.editReport(map.id);
+				} else {
+					// Ctrl+Q: 若找到資料，開啟「處理視窗 (Fix Modal)」
+					this.switchTab('list');
+					this.openModal(item);
+				}
+			} else {
+				this.switchTab('report');
+				document.getElementById('r_code').value = code_fileName;
+				document.getElementById('r_url').value = autoUrl;
+				if (funName) {
+					document.getElementById('r_function').value = funName;
+				} else {
+					document.getElementById('r_function').value = titleName || "";
+				}
+				if (moduleName) {
+					document.getElementById('r_module').value = moduleName;
+				}
+			}
+		}
+	},
+
+	closeExtension() {
+		// Send message to top window to close the iframe
+		window.top.postMessage({ action: 'qa_tracker_close' }, '*');
 	},
 
 	bindEvents() {
@@ -40,6 +117,48 @@ const App = {
 
 		document.getElementById('fixModal').addEventListener('click', (e) => {
 			if (e.target.id === 'fixModal') this.closeModal();
+		});
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') {
+				// Only close extension if fixModal is NOT active, or fallback
+				const modal = document.getElementById('fixModal');
+				if (modal.classList.contains('active')) {
+					this.closeModal();
+				} else {
+					this.closeExtension();
+				}
+			}
+		});
+
+		// Global Event Delegation for MV3 `data-cmd`
+		document.addEventListener('click', (e) => {
+			const target = e.target.closest('[data-cmd]');
+			if (target) {
+				const cmd = target.getAttribute('data-cmd');
+				const arg = target.getAttribute('data-arg');
+				console.log("[QA Tracker] Clicked cmd:", cmd, "arg:", arg);
+				if (cmd === 'openLink') window.open(arg, '_blank');
+				else if (typeof App[cmd] === 'function') App[cmd](arg);
+			}
+		});
+
+		document.addEventListener('input', (e) => {
+			const target = e.target.closest('[data-input-cmd]');
+			if (target && typeof App[target.getAttribute('data-input-cmd')] === 'function') {
+				console.log("[QA Tracker] Input cmd:", target.getAttribute('data-input-cmd'));
+				App[target.getAttribute('data-input-cmd')](target.value);
+			}
+		});
+
+		document.addEventListener('change', (e) => {
+			const target = e.target.closest('[data-change-cmd]');
+			if (target) {
+				const cmd = target.getAttribute('data-change-cmd');
+				console.log("[QA Tracker] Change cmd:", cmd);
+				if (cmd === 'checkStatusColor') App.checkStatusColor(target);
+				else if (typeof App[cmd] === 'function') App[cmd](target.value);
+			}
 		});
 	},
 
@@ -99,9 +218,33 @@ const App = {
 	async fetchData(forceRefresh = false) {
 		this.showLoading(true);
 		try {
+			const cacheKey = 'qa_data_cache';
+			const cacheTimeKey = 'qa_data_cache_time';
+			const cacheExpiry = 5 * 60 * 1000; // 5 minutes
+
+			if (!forceRefresh) {
+				const cachedData = sessionStorage.getItem(cacheKey);
+				const cachedTime = sessionStorage.getItem(cacheTimeKey);
+
+				if (cachedData && cachedTime) {
+					const now = new Date().getTime();
+					if (now - parseInt(cachedTime, 10) < cacheExpiry) {
+						console.log("[QA Tracker] Using cached data from sessionStorage.");
+						this.state.data = JSON.parse(cachedData);
+						this.applyFilter();
+						this.renderRecentReports();
+						return;
+					}
+				}
+			}
+
+			console.log("[QA Tracker] Fetching fresh data from API_URL.");
 			const res = await fetch(this.API_URL);
 			const data = await res.json();
 			this.state.data = data.reverse(); // Newest first
+
+			sessionStorage.setItem(cacheKey, JSON.stringify(this.state.data));
+			sessionStorage.setItem(cacheTimeKey, new Date().getTime().toString());
 
 			this.applyFilter();
 			this.renderRecentReports();
@@ -204,14 +347,15 @@ const App = {
 			url: document.getElementById('r_url').value,
 			description: document.getElementById('r_description').value,
 			timestamp: new Date().toLocaleDateString('zh-TW'),
-			reporter: this.state.currentUser
+			reporter: this.state.currentUser,
+			pageTitle: this.state.capturedTitle // Add titleName property
 		};
 
 		const res = await this.postData(payload);
 		if (res.status === 'success') {
 			alert(isUpdate ? "修改成功！" : `回報成功！ID: ${res.id}`);
 			this.cancelReportEdit(); // Reset form
-			this.fetchData();
+			this.fetchData(true);
 		} else {
 			alert("操作失敗: " + res.message);
 		}
@@ -246,7 +390,7 @@ const App = {
 			const shortDesc = (map.desc && map.desc.length > 30) ? map.desc.substring(0, 30) + '...' : map.desc;
 			const shortTime = map.time ? map.time.split(' ')[0] : '-';
 			const linkBtn = map.url && map.url.startsWith('http')
-				? `<button class="btn btn-sm btn-secondary" onclick="window.open('${map.url}', '_blank')">連結</button>`
+				? `<button class="btn btn-sm btn-secondary" data-cmd="openLink" data-arg="${map.url}">連結</button>`
 				: '';
 
 			// Edit uses editReport now
@@ -259,9 +403,9 @@ const App = {
                 <td style="font-size:0.8rem; color:#94a3b8;">${shortTime}</td>
                 <td style="text-align:right;">
                     ${linkBtn}
-                    <button class="btn btn-sm btn-info" onclick="App.copyReport('${map.id}')">複製</button>
-                    <button class="btn btn-sm btn-secondary" onclick="App.editReport('${map.id}')">修改</button>
-                    <button class="btn btn-sm btn-danger" onclick="App.deleteData('${map.id}')">刪除</button>
+                    <button class="btn btn-sm btn-info" data-cmd="copyReport" data-arg="${map.id}">複製</button>
+                    <button class="btn btn-sm btn-secondary" data-cmd="editReport" data-arg="${map.id}">修改</button>
+                    <button class="btn btn-sm btn-danger" data-cmd="deleteData" data-arg="${map.id}">刪除</button>
                 </td>
             `;
 			tbody.appendChild(tr);
@@ -336,7 +480,7 @@ const App = {
 		}
 	},
 
-	refreshData() { this.fetchData(); },
+	refreshData() { this.fetchData(true); },
 
 	applyFilter() {
 		const { data, searchQuery, filterStatus } = this.state;
@@ -376,7 +520,7 @@ const App = {
 			const tr = document.createElement('tr');
 
 			const linkBtn = map.url && map.url.startsWith('http')
-				? `<button class="btn btn-sm btn-secondary" onclick="window.open('${map.url}', '_blank')">開啟</button>`
+				? `<button class="btn btn-sm btn-secondary" data-cmd="openLink" data-arg="${map.url}">開啟</button>`
 				: '<span style="color:#64748b; font-size:0.8rem;">無連結</span>';
 
 			tr.innerHTML = `
@@ -388,7 +532,7 @@ const App = {
                 <td>${map.reporter}</td>
                 <td style="text-align:right;">
                     ${linkBtn}
-                    <button class="btn btn-sm btn-secondary" onclick="App.openModalById('${map.id}')">編輯</button>
+                    <button class="btn btn-sm btn-secondary" data-cmd="openModalById" data-arg="${map.id}">編輯</button>
                 </td>
             `;
 			tbody.appendChild(tr);
@@ -421,6 +565,7 @@ const App = {
 		document.getElementById('edit_module').value = map.mod || ''; // Readonly field
 		document.getElementById('edit_function').value = map.func || ''; // Readonly field
 		document.getElementById('edit_code').value = map.code || ''; // Readonly field
+		document.getElementById('edit_url').value = map.url || ''; // Readonly field
 
 		document.getElementById('edit_fixer').value = map.fixer || this.state.currentUser;
 		document.getElementById('edit_fixNote').value = map.fixNote;
@@ -456,7 +601,7 @@ const App = {
 		if (res.status === 'success') {
 			alert("更新成功！");
 			this.closeModal();
-			this.fetchData();
+			this.fetchData(true);
 		} else {
 			alert("更新失敗: " + res.message);
 		}
@@ -472,7 +617,7 @@ const App = {
 
 		if (res.status === 'success') {
 			alert("刪除成功");
-			this.fetchData();
+			this.fetchData(true);
 		} else {
 			alert("刪除失敗: " + res.message);
 		}
